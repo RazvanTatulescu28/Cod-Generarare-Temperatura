@@ -1,0 +1,63 @@
+import json
+import time
+import paho.mqtt.publish as publish
+import requests
+
+# Setările brokerului MQTT
+broker = "mqtt.beia-telemetrie.ro"
+port = 1883
+topic = "training/device/Razvan-Mihail"
+topic_processed = "training/device/Razvan-Mihail/processed"
+
+# Informații despre locație
+city_name = "Moscow"
+state_code = ""
+country_code = "RU"
+limit = 1
+
+# Cheia API OpenWeatherMap
+api_key = "961dbbf41caa9f205be694bbb208a8f5"
+
+# URL pentru obținerea datelor de geocodare
+geocoding_url = f"http://api.openweathermap.org/geo/1.0/direct?q={city_name},{state_code},{country_code}&limit={limit}&appid={api_key}"
+
+# Funcția pentru obținerea coordonatelor
+def get_coordinates():
+    response = requests.get(geocoding_url)
+    data = response.json()
+    if data:
+        latitude = data[0]["lat"]
+        longitude = data[0]["lon"]
+        return latitude, longitude
+    else:
+        return None, None
+
+# Obținerea coordonatelor geografice
+latitude, longitude = get_coordinates()
+
+# URL pentru obținerea datelor meteorologice
+weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&appid={api_key}"
+
+# Funcția pentru obținerea temperaturii curente din API
+def get_current_temperature():
+    response = requests.get(weather_url)
+    data = response.json()
+    temperature_kelvin = data["main"]["temp"]
+    temperature_celsius = temperature_kelvin - 273.15
+    return temperature_celsius
+
+# Publicarea datelor în mod continuu
+while True:
+    # Obținerea temperaturii curente
+    temperature = get_current_temperature()
+    print(f"Temperature: {temperature}°C")
+
+    payload_dict = {
+        "temperature": temperature
+    }
+
+    # Publicarea temperaturii în topic
+    publish.single(topic, hostname=broker, port=port, payload=json.dumps(payload_dict))
+
+    # Așteptare pentru o perioadă de timp
+    time.sleep(10)
